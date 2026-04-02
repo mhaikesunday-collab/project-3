@@ -356,7 +356,7 @@ with st.sidebar:
     unit_cost         = st.number_input("Explosive Unit Cost ($/t)", min_value=0.0, value=450.0, step=10.0, format="%.2f")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    run_btn = st.button("RUN BLAST DESIGN")
+    run_btn = st.button("CALCULATE")
 
 
 # ─────────────────────────────────────────────────────────────

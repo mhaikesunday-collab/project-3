@@ -7,6 +7,7 @@ Author: mhaike
 import math
 import streamlit as st
 from datetime import datetime
+import pandas as pd
 
 # ─────────────────────────────────────────────────────────────
 #  PAGE CONFIG  – must be first Streamlit call
@@ -19,7 +20,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────
-#  GLOBAL CSS  – full dark theme + blue/green accents
+#  GLOBAL CSS  – full dark theme + table styling
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -65,7 +66,7 @@ h1, h2, h3, h4, h5, h6, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
     letter-spacing: 1px;
 }
 
-/* Subheader specifically */
+/* Subheader */
 .stSubheader {
     color: var(--accent-green) !important;
     font-family: var(--mono) !important;
@@ -74,44 +75,66 @@ h1, h2, h3, h4, h5, h6, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
     margin-top: 20px;
 }
 
-/* Metric cards */
-[data-testid="stMetric"] {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border);
+/* Tables */
+table {
+    width: 100%;
+    background-color: var(--bg-card) !important;
+    border-collapse: collapse;
     border-radius: 8px;
-    padding: 12px 16px;
+    overflow: hidden;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    margin-bottom: 20px;
 }
 
-[data-testid="stMetricLabel"] {
-    color: var(--text-label) !important;
-    font-family: var(--body);
-    font-size: 13px;
-    font-weight: 400;
-}
-
-[data-testid="stMetricValue"] {
+th {
+    background-color: #0D2A3E !important;
     color: var(--accent-green) !important;
     font-family: var(--mono);
-    font-size: 28px !important;
+    font-size: 13px;
     font-weight: 600;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
 }
 
-/* Divider */
-hr {
-    border-color: var(--border) !important;
+td {
+    padding: 8px 12px;
+    color: var(--text-main) !important;
+    font-family: var(--body);
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+/* Cost highlight block */
+.cost-block {
+    background: linear-gradient(120deg, #062A3D, #063320);
+    border: 1px solid var(--accent-green);
+    border-radius: 8px;
+    padding: 18px 24px;
     margin: 20px 0;
 }
-
-/* General text, write, caption, info */
-.stMarkdown, .stText, .stCaption, p, div:not(.stAlert) {
-    color: var(--text-main) !important;
-}
-
-.stCaption {
-    color: var(--text-muted) !important;
+.cost-label {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--accent-green);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.cost-value {
+    font-family: var(--mono);
+    font-size: 38px;
+    color: var(--accent-green);
+    font-weight: bold;
+}
+.cost-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
 }
 
 /* Download button */
@@ -127,28 +150,16 @@ hr {
     transition: 0.2s;
 }
 
-.stDownloadButton button:hover {
-    opacity: 0.85;
-}
-
-/* Input summary (st.write lines) */
-.stMarkdown p, .stText p {
-    color: var(--text-main);
-}
-
-/* Sidebar inputs already styled via default Streamlit, but we can refine */
+/* Sidebar inputs */
 [data-testid="stSidebar"] .stNumberInput input {
     background-color: #040E19 !important;
     color: var(--accent-blue) !important;
     border: 1px solid var(--border);
     border-radius: 4px;
 }
-
 [data-testid="stSidebar"] label {
     color: var(--text-label) !important;
 }
-
-/* Button in sidebar */
 [data-testid="stSidebar"] .stButton button {
     background: linear-gradient(135deg, var(--mid-blue), var(--mid-green));
     color: white;
@@ -201,16 +212,27 @@ def generate_report_text(inputs: dict, results: dict) -> str:
 BLAST DESIGN REPORT
 {ts}
 
-Burden: {results['burden']:.3f} m
-Spacing: {results['spacing']:.3f} m
-Holes: {results['holes']}
-Charge per Hole: {results['charge']:.4f} t
+=== DRILL DESIGN ===
+Burden               : {results['burden']:.3f} m
+Spacing              : {results['spacing']:.3f} m
+Number of Holes      : {results['holes']}
+Charge per Hole      : {results['charge']:.4f} t
 
-Total Explosive: {results['total_exp']:.3f} t
-Rock Volume: {results['rock_vol']:.2f} m³
-Powder Factor: {results['pf']:.4f}
+=== EXPLOSIVE & ROCK ===
+Total Explosive      : {results['total_exp']:.3f} t
+Rock Volume          : {results['rock_vol']:.2f} m³
+Powder Factor        : {results['pf']:.4f} t/m³
 
-Cost: ${results['cost']:,.2f}
+=== COST ===
+Total Blasting Cost  : ${results['cost']:,.2f}
+
+=== INPUT SUMMARY ===
+Bench Height         : {inputs['bench_height']:.1f} m
+Hole Diameter        : {inputs['hole_diameter']:.4f} m
+Rock Density         : {inputs['rock_density']:.2f} t/m³
+Explosive Density    : {inputs['explosive_density']:.2f} t/m³
+Bench Area           : {inputs['area']:.1f} m²
+Unit Cost            : ${inputs['unit_cost']:.2f} /t
 """
 
 # ─────────────────────────────────────────────────────────────
@@ -218,12 +240,12 @@ Cost: ${results['cost']:,.2f}
 # ─────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### ⚙️ INPUT PARAMETERS")
-    rock_density      = st.number_input("Rock Density (t/m³)", 0.1, value=2.7)
-    bench_height      = st.number_input("Bench Height (m)", 0.1, value=10.0)
-    area              = st.number_input("Bench Area (m²)", 1.0, value=5000.0)
-    hole_diameter     = st.number_input("Hole Diameter (m)", 0.01, value=0.115)
-    explosive_density = st.number_input("Explosive Density (t/m³)", 0.1, value=0.85)
-    unit_cost         = st.number_input("Unit Cost ($/t)", 0.0, value=450.0)
+    rock_density      = st.number_input("Rock Density (t/m³)", min_value=0.1, value=2.7, step=0.1, format="%.2f")
+    bench_height      = st.number_input("Bench Height (m)", min_value=0.1, value=10.0, step=0.5, format="%.1f")
+    area              = st.number_input("Bench Area (m²)", min_value=1.0, value=5000.0, step=100.0, format="%.1f")
+    hole_diameter     = st.number_input("Hole Diameter (m)", min_value=0.01, value=0.115, step=0.005, format="%.4f")
+    explosive_density = st.number_input("Explosive Density (t/m³)", min_value=0.1, value=0.85, step=0.05, format="%.2f")
+    unit_cost         = st.number_input("Unit Cost ($/t)", min_value=0.0, value=450.0, step=10.0, format="%.2f")
 
     run_btn = st.button("CALCULATE")
 
@@ -250,55 +272,55 @@ results = st.session_state["results"]
 inputs  = st.session_state["inputs"]
 
 # ─────────────────────────────────────────────────────────────
-#  OUTPUT SECTION
+#  OUTPUT TABLES
 # ─────────────────────────────────────────────────────────────
 
-st.subheader("Drill Design Parameters")
+st.subheader("📊 Drill Design Parameters")
 
-col1, col2 = st.columns(2)
+# Table 1: Drill Design
+drill_data = pd.DataFrame([
+    ("Burden", f"{results['burden']:.3f} m"),
+    ("Spacing", f"{results['spacing']:.3f} m"),
+    ("Number of Holes", results['holes']),
+    ("Charge per Hole", f"{results['charge']:.4f} t"),
+], columns=["Parameter", "Value"])
+st.table(drill_data)
 
-with col1:
-    st.metric("Burden (m)", f"{results['burden']:.3f}")
-    st.metric("Spacing (m)", f"{results['spacing']:.3f}")
-    st.metric("Number of Holes", results['holes'])
+st.subheader("📦 Explosive & Rock Volume")
 
-with col2:
-    st.metric("Charge per Hole (t)", f"{results['charge']:.4f}")
-    st.metric("Total Explosive (t)", f"{results['total_exp']:.3f}")
+# Table 2: Explosive & Rock
+rock_data = pd.DataFrame([
+    ("Total Explosive", f"{results['total_exp']:.3f} t"),
+    ("Rock Volume", f"{results['rock_vol']:.2f} m³"),
+    ("Powder Factor", f"{results['pf']:.4f} t/m³"),
+], columns=["Parameter", "Value"])
+st.table(rock_data)
 
-st.divider()
+st.subheader("💰 Cost Estimation")
 
-st.subheader("Explosive & Rock Volume")
+# Cost highlight block
+st.markdown(f"""
+<div class="cost-block">
+    <div class="cost-label">Total Blasting Cost — Bench Estimate</div>
+    <div class="cost-value">${results['cost']:,.2f}</div>
+    <div class="cost-sub">
+        Based on {results['total_exp']:.3f} t explosive × ${inputs['unit_cost']:.2f}/t
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-col3, col4, col5 = st.columns(3)
+st.subheader("📋 Input Summary")
 
-with col3:
-    st.metric("Rock Volume (m³)", f"{results['rock_vol']:.2f}")
-
-with col4:
-    st.metric("Powder Factor (t/m³)", f"{results['pf']:.4f}")
-
-with col5:
-    st.metric("Bench Area (m²)", f"{inputs['area']:.1f}")
-
-st.divider()
-
-st.subheader("Cost Estimation")
-
-st.metric("Total Blasting Cost ($)", f"{results['cost']:,.2f}")
-
-st.caption(f"Based on {results['total_exp']:.3f} t × ${inputs['unit_cost']:.2f}/t")
-
-st.divider()
-
-st.subheader("Input Summary")
-
-st.write(f"**Bench Height:** {inputs['bench_height']:.1f} m")
-st.write(f"**Hole Diameter:** {inputs['hole_diameter']:.4f} m")
-st.write(f"**Rock Density:** {inputs['rock_density']:.2f} t/m³")
-st.write(f"**Explosive Density:** {inputs['explosive_density']:.2f} t/m³")
-st.write(f"**Bench Area:** {inputs['area']:.1f} m²")
-st.write(f"**Unit Cost:** ${inputs['unit_cost']:.2f} /t")
+# Table 3: Input parameters
+input_data = pd.DataFrame([
+    ("Bench Height", f"{inputs['bench_height']:.1f} m"),
+    ("Hole Diameter", f"{inputs['hole_diameter']:.4f} m"),
+    ("Rock Density", f"{inputs['rock_density']:.2f} t/m³"),
+    ("Explosive Density", f"{inputs['explosive_density']:.2f} t/m³"),
+    ("Bench Area", f"{inputs['area']:.1f} m²"),
+    ("Unit Cost", f"${inputs['unit_cost']:.2f} /t"),
+], columns=["Parameter", "Value"])
+st.table(input_data)
 
 # ─────────────────────────────────────────────────────────────
 #  DOWNLOAD REPORT
@@ -308,5 +330,5 @@ report_text = generate_report_text(inputs, results)
 st.download_button(
     "📄 Download Report (TXT)",
     report_text,
-    file_name="blast_report.txt"
+    file_name=f"BlastDesign_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
 )
